@@ -2,12 +2,12 @@ from flask import Flask, request, session, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
+app.secret_key = 'supersecretkey'  # Should be more secure in production
 
-# Secret key for werkzeug hash encryption
-app.secret_key = 'supersecretkey'  
-
-# In-memory storage for users
+# In-memory storage for users and orders
 users = {}
+orders = {}
+order_id_counter = 1
 
 # ---------------------------------------------
 
@@ -53,7 +53,6 @@ def login():
     except Exception as e:
         return jsonify({'message': 'An error occurred during login.'}), 500
 
-
 # ---------------------------------------------
 
 @app.route('/logout', methods=['POST'])
@@ -67,11 +66,68 @@ def logout():
 
     except Exception as e:
         return jsonify({'message': 'An error occurred during logout.'}), 500
-    
+
+# ---------------------------------------------
+
+@app.route('/create_order', methods=['POST'])
+def create_order():
+    global order_id_counter
+    try:
+        if 'user' not in session:
+            return jsonify({'message': 'User must be logged in to create an order.'}), 401
 
 
+        order_id = order_id_counter
+        order_id_counter += 1
 
+        orders[order_id] = {
+            'username': session['user'],
+            'order_data': request.values["order_data"],
+            'status': 'active'
+        }
+        return jsonify({'message': 'Order created successfully!', 'order_id': order_id}), 201
 
+    except Exception as e:
+        return jsonify({'message': 'An error occurred while creating order.'}), 500
+
+# ---------------------------------------------
+
+@app.route('/cancel_order', methods=['POST'])
+def cancel_order():
+    try:
+        if 'user' not in session:
+            return jsonify({'message': 'User must be logged in to cancel an order.'}), 401
+
+        # Expecting order ID to be passed in the JSON body
+        order_id = int(request.values["order_data"])
+
+        if order_id == None:
+            return jsonify({'message': 'Order ID is required.'}), 400
+
+        if order_id not in orders or orders[order_id]['username'] != session['user']:
+            return jsonify({'message': 'Order not found or not authorized to cancel this order.'}), 404
+
+        orders[order_id]['status'] = 'cancelled'
+        return jsonify({'message': 'Order cancelled successfully!'}), 200
+
+    except Exception as e:
+        return jsonify({'message': 'An error occurred while cancelling order.'}), 500
+
+# ---------------------------------------------
+
+@app.route('/get_orders', methods=['GET'])
+def get_orders():
+    try:
+        if 'user' not in session:
+            return jsonify({'message': 'User must be logged in to view orders.'}), 401
+
+        user_orders = {oid: details for oid, details in orders.items() if details['username'] == session['user']}
+        return jsonify(user_orders), 200
+
+    except Exception as e:
+        return jsonify({'message': 'An error occurred while retrieving orders.'}), 500
+
+# ---------------------------------------------
 
 if __name__ == '__main__':
     app.run(debug=True)
