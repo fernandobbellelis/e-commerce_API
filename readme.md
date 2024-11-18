@@ -50,3 +50,11 @@ To get started with the E-Commerce API, follow the steps below:
    ```
 
 You are now ready to start working with the E-Commerce API!
+
+
+1. **Run API**
+
+   ```bash
+   python app.py
+   ```
+
